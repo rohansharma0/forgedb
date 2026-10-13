@@ -1,23 +1,44 @@
 package server;
 
+import config.Config;
+import store.Store;
+
 import java.io.*;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-public class TCPServer {
+public class Server {
 
-    public static final int PORT = 6380;
+    public static Config config;
 
-    public static void runTCPServer() throws IOException {
-        try (ServerSocket server = new ServerSocket(PORT)) {
-            System.out.println("Forge DB listening on port " + PORT);
+    public static void main(String[] args) {
+        System.out.println("Starting Forge DB...");
+        Config.configure(args);
+        try {
+            runServer();
+        } catch (Exception e) {
+            System.err.println("Forge DB failed to start : "+ e.getMessage());
+        }
+    }
+
+    private static void runServer() {
+
+        try(ServerSocket server = new ServerSocket()) {
+            server.bind(new InetSocketAddress(Config.host, Config.port));
+
+            System.out.println("Forge DB listening on " + Config.host + ":" + Config.port);
             while (true) {
                 Socket client = server.accept();
                 System.out.println("Client connected: " + client.getRemoteSocketAddress());
+
                 handleClient(client);
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
+
 
     private static void handleClient(Socket client) {
         try (
@@ -56,6 +77,7 @@ public class TCPServer {
                 break;
         }
     }
+
 
     private static void evalGET(Socket client, String[] cmd) throws Exception {
         if(cmd.length > 2){

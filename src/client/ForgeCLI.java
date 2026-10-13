@@ -10,7 +10,7 @@ public class ForgeCLI {
     public static void main(String[] args) {
 
         try (
-                Socket socket = new Socket("127.0.0.1", 6380);
+                Socket socket = new Socket("127.0.0.1", 8379);
                 Scanner scanner = new Scanner(System.in);
                 BufferedWriter writer = new BufferedWriter(
                         new OutputStreamWriter(socket.getOutputStream())
