@@ -1,16 +1,18 @@
 package server;
 
 import config.Config;
-import store.Store;
+import connection.Connection;
+import connection.SocketConnection;
+import executor.CommandExecutor;
+import protocol.Cmd;
+import protocol.CommandParser;
 
-import java.io.*;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
 public class Server {
-
-    public static Config config;
 
     public static void main(String[] args) {
         System.out.println("Starting Forge DB...");
@@ -31,7 +33,6 @@ public class Server {
             while (true) {
                 Socket client = server.accept();
                 System.out.println("Client connected: " + client.getRemoteSocketAddress());
-
                 handleClient(client);
             }
         } catch (IOException e) {
@@ -41,100 +42,18 @@ public class Server {
 
 
     private static void handleClient(Socket client) {
-        try (
-                Socket socket = client;
-                BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(socket.getInputStream())
-                )
-        ) {
+        try (client) {
+            Connection c = new SocketConnection(client);
             String request;
-            while ((request = reader.readLine()) != null) {
+            while ((request = c.read()) != null) {
                 System.out.println("Received: " + request);
-                String[] cmd = request.split(" ");
-                response(client,cmd);
+                Cmd cmd = CommandParser.parse(request);
+                String res = CommandExecutor.execute(cmd);
+                c.write(res);
             }
         } catch (IOException e) {
             System.err.println("Client connection error: " + e.getMessage());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
         System.out.println("Client disconnected.");
-    }
-
-    private static void response(Socket client, String[] cmd) throws Exception {
-        switch (cmd[0]){
-            case "PING":
-                evalPING(client,cmd);
-                break;
-            case "SET":
-                evalSET(client,cmd);
-                break;
-            case "GET":
-                evalGET(client,cmd);
-                break;
-            default:
-                evalPING(client,cmd);
-                break;
-        }
-    }
-
-
-    private static void evalGET(Socket client, String[] cmd) throws Exception {
-        if(cmd.length > 2){
-            throw new Exception("error in arguments");
-        }
-        String v = Store.get(cmd[1]);
-        try {
-            BufferedWriter writer = new BufferedWriter(
-                    new OutputStreamWriter(client.getOutputStream())
-            );
-            if(v == null){
-                writer.write("(nil)");
-            }else{
-                writer.write(v);
-            }
-
-            writer.newLine();
-            writer.flush();
-        }catch (Exception e){
-
-        }
-    }
-
-    private static void evalSET(Socket client, String[] cmd) throws Exception {
-        if(cmd.length <= 2){
-            throw new Exception("error in arguments");
-        }
-        Store.set(cmd[1],cmd[2]);
-        try {
-            BufferedWriter writer = new BufferedWriter(
-                    new OutputStreamWriter(client.getOutputStream())
-            );
-            writer.write("OK");
-            writer.newLine();
-            writer.flush();
-        }catch (Exception e){
-
-        }
-    }
-
-    private static void evalPING(Socket client, String[] cmd) {
-        try {
-            BufferedWriter writer = new BufferedWriter(
-                    new OutputStreamWriter(client.getOutputStream())
-            );
-            if (cmd.length == 1) {
-                writer.write("PONG");
-                writer.newLine();
-            }else{
-                String res ="";
-                for(int i = 1; i< cmd.length; i++) res += cmd[i];
-                writer.write(res);
-                writer.newLine();
-            }
-            writer.flush();
-        }catch (Exception e){
-
-        }
     }
 }
